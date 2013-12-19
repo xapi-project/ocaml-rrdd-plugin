@@ -153,11 +153,15 @@ let initialise () =
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
 
+type target =
+	| Local
+	| Interdomain of (int * int)
+
 let choose_protocol = function
 	| Rrd_interface.V1 -> Rrd_protocol_v1.protocol
 	| Rrd_interface.V2 -> Rrd_protocol_v2.protocol
 
-let main_loop ~neg_shift ~dss_f ~protocol =
+let main_loop_local ~neg_shift ~dss_f ~protocol =
 	let rec main () =
 		try
 			let path = RRDD.Plugin.get_path ~uid:N.name in
@@ -196,4 +200,58 @@ let main_loop ~neg_shift ~dss_f ~protocol =
 
 	debug "Entering main loop ..";
 	main ()
+
+let main_loop_interdomain ~dss_f ~backend_domid ~page_count ~protocol =
+	let id = Rrd_writer.({
+		backend_domid = backend_domid;
+		shared_page_count = page_count;
+	}) in
+	let shared_page_refs, writer =
+		Rrd_writer.PageWriter.create id (choose_protocol protocol)
+	in
+	let xs_state = get_xs_state () in
+	Xs.transaction xs_state.client (fun xs ->
+		Xs.write xs
+			(Printf.sprintf "%s/%s/grantrefs" xs_state.root_path N.name)
+			(List.map string_of_int shared_page_refs |> String.concat ",");
+		Xs.write xs
+			(Printf.sprintf "%s/%s/protocol" xs_state.root_path N.name)
+			(Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
+		Xs.write xs
+			(Printf.sprintf "%s/%s/ready" xs_state.root_path N.name)
+			"true");
+	cleanup_fn := Some (fun () ->
+		Xs.immediate xs_state.client (fun xs ->
+			Xs.write xs
+				(Printf.sprintf "%s/%s/shutdown" xs_state.root_path N.name)
+				"true");
+		writer.Rrd_writer.cleanup ());
+	let rec main () =
+		try
+			while true do
+				let payload = Rrd_protocol.({
+					timestamp = now ();
+					datasources = dss_f ();
+				}) in
+				writer.Rrd_writer.write_payload payload;
+				debug "Done outputting payload";
+				Thread.delay 5.0
+			done
+		with
+			| Sys.Break ->
+				warn "Caught Sys.Break; exiting...";
+				cleanup Sys.sigint
+			| e ->
+				error "Unexpected error %s, sleeping for 10 seconds..." (Printexc.to_string e);
+				log_backtrace ();
+				Unix.sleep 10;
+				main ()
+	in
+	main ()
+
+let main_loop ~neg_shift ~dss_f ~target ~protocol =
+	match target with
+	| Local -> main_loop_local ~neg_shift ~dss_f ~protocol
+	| Interdomain (backend_domid, page_count) ->
+		main_loop_interdomain ~dss_f ~backend_domid ~page_count ~protocol
 end
