@@ -85,7 +85,8 @@ let list_directory_entries_unsafe dir =
 
 let unregister signum =
 	info "Received signal %d: deregistering plugin %s..." signum N.name;
-	RRDD.Plugin.deregister N.name
+	RRDD.Plugin.deregister N.name;
+	exit 0
 
 module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
 type xs_state = {
