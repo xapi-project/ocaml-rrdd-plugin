@@ -29,9 +29,20 @@ let generate_dummy_dss () =
 	]
 
 let _ =
+	let mode = ref Common.Local in
+	Arg.parse
+		[("-mode",
+			Arg.String (function
+				| "local" -> mode := Common.Local
+				| "interdomain" -> mode := Common.Interdomain (0, 1)
+				| x -> invalid_arg x),
+			"Switch between local and interdomain mode")]
+		(fun _ -> ())
+		(Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name);
+
 	Common.initialise ();
 	Common.main_loop
 		~neg_shift:0.5
 		~dss_f:generate_dummy_dss
-		~target:Common.Local
+		~target:!mode
 		~protocol:Rrd_interface.V2
