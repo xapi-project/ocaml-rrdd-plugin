@@ -195,8 +195,5 @@ let main_loop ~neg_shift ~dss_f ~protocol =
 	in
 
 	debug "Entering main loop ..";
-	(try main () with 
-		| Sys.Break -> unregister (Sys.sigint));
-	debug "End."
-
+	main ()
 end
