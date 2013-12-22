@@ -24,8 +24,14 @@ let cnt = make_cnt 0
 let generate_dummy_dss () =
 	[
 		Rrd.Host,
-		Ds.ds_make ~name:"dummy-metric" ~description:"Dummy data" ~value:(Rrd.VT_Int64 (cnt ())) ~ty:(Rrd.Gauge)
-			~default:true ~units:"Pixies" ()
+		Ds.ds_make
+			~name:"dummy-metric"
+			~description:"Dummy data"
+			~value:(Rrd.VT_Int64 (cnt ()))
+			~ty:(Rrd.Gauge)
+			~default:true
+			~units:"Pixies"
+			()
 	]
 
 let _ =
