@@ -36,13 +36,22 @@ let generate_dummy_dss () =
 
 let _ =
 	let mode = ref Common.Local in
+	let protocol = ref Rrd_interface.V1 in
 	Arg.parse
-		[("-mode",
-			Arg.String (function
-				| "local" -> mode := Common.Local
-				| "interdomain" -> mode := Common.Interdomain (0, 1)
-				| x -> invalid_arg x),
-			"Switch between local and interdomain mode")]
+		[
+			("-mode",
+				Arg.String (function
+					| "local" -> mode := Common.Local
+					| "interdomain" -> mode := Common.Interdomain (0, 1)
+					| x -> invalid_arg x),
+				"Switch between local and interdomain mode");
+			("-protocol",
+				Arg.String (function
+					| "v1" -> protocol := Rrd_interface.V1
+					| "v2" -> protocol := Rrd_interface.V2
+					| x -> invalid_arg x),
+				"Switch between protocol V1 and protocol V2");
+		]
 		(fun _ -> ())
 		(Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name);
 
